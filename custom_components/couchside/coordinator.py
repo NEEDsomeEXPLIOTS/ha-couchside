@@ -1,4 +1,4 @@
-"""Couchside API coordinator with data refresh and action execution."""
+"""Couchside API coordinator with TV control methods."""
 from __future__ import annotations
 
 import asyncio
@@ -78,4 +78,17 @@ class CouchsideCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         ) as response:
             if response.status >= 400:
                 raise UpdateFailed(f"Media command failed: HTTP {response.status}")
+        await self.async_request_refresh()
+
+    async def async_tv_command(self, command: str, body: dict | None = None) -> None:
+        """Send a TV control command (power, volume, input)."""
+        headers = {"Authorization": f"Bearer {self.entry.data[CONF_TOKEN]}"}
+        async with self._http.post(
+            f"{self.base}/api/tv/{command}",
+            headers=headers,
+            json=body,
+            timeout=10,
+        ) as response:
+            if response.status >= 400:
+                raise UpdateFailed(f"TV command failed: HTTP {response.status}")
         await self.async_request_refresh()

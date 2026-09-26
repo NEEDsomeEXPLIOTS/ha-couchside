@@ -1,4 +1,4 @@
-"""Constants for Couchside."""
+"""Constants for Couchside integration."""
 from homeassistant.const import Platform
 
 DOMAIN = "couchside"

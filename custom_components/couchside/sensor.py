@@ -1,6 +1,8 @@
 """Couchside status sensors."""
 from __future__ import annotations
 
+from datetime import timedelta
+
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import PERCENTAGE, UnitOfTemperature, UnitOfTime
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -18,7 +20,6 @@ from .coordinator import CouchsideCoordinator
 # - disks: [{mount, total_gb, used_gb, free_gb, pct}, ...]
 SENSORS = {
     "cpu_temp_c": ("CPU Temperature", UnitOfTemperature.CELSIUS, "mdi:thermometer"),
-    "uptime_s": ("Uptime", UnitOfTime.SECONDS, "mdi:clock-outline"),
     "mem": ("Memory Used", PERCENTAGE, "mdi:memory"),
 }
 
@@ -32,6 +33,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
         CouchsideSensor(coordinator, key, *meta)
         for key, meta in SENSORS.items()
     ]
+
+    # Uptime as a human-readable string (days, hours, minutes, seconds)
+    entities.append(CouchsideUptimeSensor(coordinator, "Uptime", "mdi:clock-outline"))
 
     # /api/status exposes a 3-value load list: [1m, 5m, 15m].
     # This is not a percentage; it is a load-average value, so we expose it as-is.
@@ -61,12 +65,21 @@ class CouchsideSensor(CoordinatorEntity, SensorEntity):
         status = self.coordinator.data.get("status", {})
         return DeviceInfo(
             identifiers={(DOMAIN, self.coordinator.entry.entry_id)},
-            name=status.get("hostname", "Couchside"),
+            name=self._device_name(status),
             manufacturer="EmeryTech",
             model=status.get("os", {}).get("name", "Unknown"),
             hw_version=status.get("os", {}).get("build", "Unknown"),
             sw_version=status.get("agent_version", "Unknown"),
         )
+
+    @staticmethod
+    def _device_name(status: dict) -> str:
+        """Format a polished device name from hostname and OS."""
+        hostname = status.get("hostname", "Couchside").title()
+        os_name = status.get("os", {}).get("name", "")
+        if os_name:
+            return f"{hostname} ({os_name})"
+        return hostname
 
     @property
     def unique_id(self):
@@ -84,6 +97,66 @@ class CouchsideSensor(CoordinatorEntity, SensorEntity):
         return value
 
 
+class CouchsideUptimeSensor(CoordinatorEntity, SensorEntity):
+    """Expose uptime as a human-readable duration string."""
+
+    def __init__(self, coordinator: CouchsideCoordinator, name: str, icon: str):
+        super().__init__(coordinator)
+        self._attr_name = name
+        self._attr_icon = icon
+        self._attr_has_entity_name = True
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        status = self.coordinator.data.get("status", {})
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.coordinator.entry.entry_id)},
+            name=self._device_name(status),
+            manufacturer="EmeryTech",
+            model=status.get("os", {}).get("name", "Unknown"),
+            hw_version=status.get("os", {}).get("build", "Unknown"),
+            sw_version=status.get("agent_version", "Unknown"),
+        )
+
+    @staticmethod
+    def _device_name(status: dict) -> str:
+        """Format a polished device name from hostname and OS."""
+        hostname = status.get("hostname", "Couchside").title()
+        os_name = status.get("os", {}).get("name", "")
+        if os_name:
+            return f"{hostname} ({os_name})"
+        return hostname
+
+    @property
+    def unique_id(self):
+        return f"{self.coordinator.entry.entry_id}_uptime"
+
+    @property
+    def native_value(self):
+        """Convert uptime seconds to a human-readable format."""
+        uptime_s = self.coordinator.data.get("status", {}).get("uptime_s")
+        if not uptime_s:
+            return None
+        
+        td = timedelta(seconds=uptime_s)
+        days = td.days
+        hours, remainder = divmod(td.seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        
+        # Format as "Xd Yh Zm" or just the relevant parts
+        parts = []
+        if days:
+            parts.append(f"{days}d")
+        if hours:
+            parts.append(f"{hours}h")
+        if minutes:
+            parts.append(f"{minutes}m")
+        if not parts or (not days and not hours):
+            parts.append(f"{seconds}s")
+        
+        return " ".join(parts)
+
+
 class CouchsideLoadSensor(CoordinatorEntity, SensorEntity):
     """Expose the 1-minute load average from /api/status."""
 
@@ -98,12 +171,21 @@ class CouchsideLoadSensor(CoordinatorEntity, SensorEntity):
         status = self.coordinator.data.get("status", {})
         return DeviceInfo(
             identifiers={(DOMAIN, self.coordinator.entry.entry_id)},
-            name=status.get("hostname", "Couchside"),
+            name=self._device_name(status),
             manufacturer="EmeryTech",
             model=status.get("os", {}).get("name", "Unknown"),
             hw_version=status.get("os", {}).get("build", "Unknown"),
             sw_version=status.get("agent_version", "Unknown"),
         )
+
+    @staticmethod
+    def _device_name(status: dict) -> str:
+        """Format a polished device name from hostname and OS."""
+        hostname = status.get("hostname", "Couchside").title()
+        os_name = status.get("os", {}).get("name", "")
+        if os_name:
+            return f"{hostname} ({os_name})"
+        return hostname
 
     @property
     def unique_id(self):
@@ -133,12 +215,21 @@ class CouchsideDiskSensor(CoordinatorEntity, SensorEntity):
         status = self.coordinator.data.get("status", {})
         return DeviceInfo(
             identifiers={(DOMAIN, self.coordinator.entry.entry_id)},
-            name=status.get("hostname", "Couchside"),
+            name=self._device_name(status),
             manufacturer="EmeryTech",
             model=status.get("os", {}).get("name", "Unknown"),
             hw_version=status.get("os", {}).get("build", "Unknown"),
             sw_version=status.get("agent_version", "Unknown"),
         )
+
+    @staticmethod
+    def _device_name(status: dict) -> str:
+        """Format a polished device name from hostname and OS."""
+        hostname = status.get("hostname", "Couchside").title()
+        os_name = status.get("os", {}).get("name", "")
+        if os_name:
+            return f"{hostname} ({os_name})"
+        return hostname
 
     @property
     def unique_id(self):
