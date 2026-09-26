@@ -4,10 +4,12 @@ from __future__ import annotations
 from datetime import timedelta
 import logging
 from typing import Any
+import asyncio
 
 from aiohttp import ClientError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import CONF_HOST, CONF_PORT, CONF_TOKEN, DOMAIN
@@ -18,9 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 class CouchsideCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.entry = entry
-        self.session = hass.helpers.network.get_url if False else None
-        self.client = None
-        self._http = hass.helpers.aiohttp.async_get_clientsession(hass)
+        self._http = async_get_clientsession(hass)
         self.base = f"http://{entry.data[CONF_HOST]}:{entry.data[CONF_PORT]}"
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=timedelta(seconds=30))
 
@@ -35,7 +35,7 @@ class CouchsideCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
-            status, actions, media, tv = await __import__("asyncio").gather(
+            status, actions, media, tv = await asyncio.gather(
                 self._get("/api/status"), self._get("/api/actions"),
                 self._get("/api/media"), self._get("/api/tv"))
             return {"status": status, "actions": actions, "media": media, "tv": tv}
