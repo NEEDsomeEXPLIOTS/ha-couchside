@@ -2,17 +2,20 @@
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.const import (
-    PERCENTAGE,
-    UnitOfTemperature,
-    UnitOfTime,
-)
+from homeassistant.const import PERCENTAGE, UnitOfTemperature, UnitOfTime
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import CouchsideCoordinator
 
+# Static sensors expected on the Couchside box.
+# The actual payload from the SteamDeck in this session reports:
+# - cpu_temp_c: float
+# - uptime_s: int
+# - mem: {total_mb, used_mb, available_mb, ...}
+# - load: [1m, 5m, 15m]
+# - disks: [{mount, total_gb, used_gb, free_gb, pct}, ...]
 SENSORS = {
     "cpu_temp_c": ("CPU Temperature", UnitOfTemperature.CELSIUS, "mdi:thermometer"),
     "uptime_s": ("Uptime", UnitOfTime.SECONDS, "mdi:clock-outline"),
@@ -21,42 +24,31 @@ SENSORS = {
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up sensors for Couchside."""
+    """Create sensor entities for one Couchside box."""
     coordinator: CouchsideCoordinator = hass.data[DOMAIN][entry.entry_id]
-    
-    # Create static sensors
+    status = coordinator.data.get("status", {})
+
     entities = [
-        CouchsideSensor(coordinator, key, *meta) for key, meta in SENSORS.items()
+        CouchsideSensor(coordinator, key, *meta)
+        for key, meta in SENSORS.items()
     ]
-    entities.append(
-        CouchsideSensor(coordinator, "load", "Load Average", PERCENTAGE, "mdi:cpu-64-bit")
-    )
-    
-    # Add disk sensors if data is available
-    if coordinator.data and "status" in coordinator.data:
-        status = coordinator.data.get("status", {})
-        if "disks" in status:
-            for disk_info in status.get("disks", []):
-                mount = disk_info.get("mount")
-                if mount:
-                    entities.append(
-                        CouchsideDiskSensor(coordinator, mount, f"Disk {mount} Used", PERCENTAGE, "mdi:harddisk")
-                    )
-    
+
+    # /api/status exposes a 3-value load list: [1m, 5m, 15m].
+    # This is not a percentage; it is a load-average value, so we expose it as-is.
+    entities.append(CouchsideLoadSensor(coordinator, "Load Average", "mdi:cpu-64-bit"))
+
+    for disk in status.get("disks", []):
+        mount = disk.get("mount")
+        if mount:
+            entities.append(CouchsideDiskSensor(coordinator, mount))
+
     async_add_entities(entities, update_before_add=True)
 
 
 class CouchsideSensor(CoordinatorEntity, SensorEntity):
-    """Base sensor entity for Couchside."""
+    """A status sensor for a Couchside box metric."""
 
-    def __init__(
-        self,
-        coordinator: CouchsideCoordinator,
-        key: str,
-        name: str,
-        unit: str,
-        icon: str,
-    ):
+    def __init__(self, coordinator: CouchsideCoordinator, key: str, name: str, unit: str, icon: str):
         super().__init__(coordinator)
         self.key = key
         self._attr_name = name
@@ -66,7 +58,6 @@ class CouchsideSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return device information."""
         status = self.coordinator.data.get("status", {})
         return DeviceInfo(
             identifiers={(DOMAIN, self.coordinator.entry.entry_id)},
@@ -84,36 +75,61 @@ class CouchsideSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         value = self.coordinator.data.get("status", {}).get(self.key)
-        if self.key == "load" and isinstance(value, list):
-            return round(value[0] * 100 / 4, 1) if value else None
         if self.key == "mem" and isinstance(value, dict):
             total = value.get("total_mb", 0)
             used = value.get("used_mb", 0)
-            return round(100 * used / total, 1) if total > 0 else None
+            if total > 0:
+                return round(100 * used / total, 1)
+            return None
         return value
 
 
-class CouchsideDiskSensor(CoordinatorEntity, SensorEntity):
-    """Disk usage sensor for Couchside."""
+class CouchsideLoadSensor(CoordinatorEntity, SensorEntity):
+    """Expose the 1-minute load average from /api/status."""
 
-    def __init__(
-        self,
-        coordinator: CouchsideCoordinator,
-        mount: str,
-        name: str,
-        unit: str,
-        icon: str,
-    ):
+    def __init__(self, coordinator: CouchsideCoordinator, name: str, icon: str):
         super().__init__(coordinator)
-        self.mount = mount
         self._attr_name = name
-        self._attr_native_unit_of_measurement = unit
         self._attr_icon = icon
         self._attr_has_entity_name = True
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return device information."""
+        status = self.coordinator.data.get("status", {})
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.coordinator.entry.entry_id)},
+            name=status.get("hostname", "Couchside"),
+            manufacturer="EmeryTech",
+            model=status.get("os", {}).get("name", "Unknown"),
+            hw_version=status.get("os", {}).get("build", "Unknown"),
+            sw_version=status.get("agent_version", "Unknown"),
+        )
+
+    @property
+    def unique_id(self):
+        return f"{self.coordinator.entry.entry_id}_load_1m"
+
+    @property
+    def native_value(self):
+        load = self.coordinator.data.get("status", {}).get("load")
+        if isinstance(load, list) and load:
+            return float(load[0])
+        return None
+
+
+class CouchsideDiskSensor(CoordinatorEntity, SensorEntity):
+    """Expose a given disk mount as a percentage-used sensor."""
+
+    def __init__(self, coordinator: CouchsideCoordinator, mount: str):
+        super().__init__(coordinator)
+        self.mount = mount
+        self._attr_name = f"Disk {mount} Used"
+        self._attr_native_unit_of_measurement = PERCENTAGE
+        self._attr_icon = "mdi:harddisk"
+        self._attr_has_entity_name = True
+
+    @property
+    def device_info(self) -> DeviceInfo:
         status = self.coordinator.data.get("status", {})
         return DeviceInfo(
             identifiers={(DOMAIN, self.coordinator.entry.entry_id)},
@@ -130,10 +146,11 @@ class CouchsideDiskSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def native_value(self):
-        disks = self.coordinator.data.get("status", {}).get("disks", [])
-        for disk in disks:
+        for disk in self.coordinator.data.get("status", {}).get("disks", []):
             if disk.get("mount") == self.mount:
                 total = disk.get("total_gb", 0)
                 used = disk.get("used_gb", 0)
-                return round(100 * used / total, 1) if total > 0 else None
+                if total > 0:
+                    return round(100 * used / total, 1)
+                return None
         return None
