@@ -1,40 +1,34 @@
 """Couchside TV controls (power, volume, input)."""
 from __future__ import annotations
 
-from homeassistant.components.button import ButtonEntity
-from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.components.button import ButtonEntity # type: ignore
+from homeassistant.helpers.device_registry import DeviceInfo # type: ignore
+from homeassistant.helpers.update_coordinator import CoordinatorEntity # type: ignore
 
-from .const import DOMAIN
-from .coordinator import CouchsideCoordinator
-
+from .const import DOMAIN # type: ignore
+from .coordinator import CouchsideCoordinator # type: ignore
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Create TV control entities from /api/tv capability."""
     coordinator: CouchsideCoordinator = hass.data[DOMAIN][entry.entry_id]
     
-    # Check if TV backend is available
     tv_data = coordinator.data.get("tv", {})
     if not tv_data or not isinstance(tv_data, dict):
         return
     
     entities = []
     
-    # Power control
     entities.append(CouchsideTVButton(coordinator, "power_toggle", "Power Toggle", "mdi:power"))
     entities.append(CouchsideTVButton(coordinator, "power_on", "Power On", "mdi:power-on"))
     entities.append(CouchsideTVButton(coordinator, "power_off", "Power Off", "mdi:power-off"))
     
-    # Volume controls
     entities.append(CouchsideTVButton(coordinator, "vol_up", "Volume Up", "mdi:volume-plus"))
     entities.append(CouchsideTVButton(coordinator, "vol_down", "Volume Down", "mdi:volume-minus"))
     entities.append(CouchsideTVButton(coordinator, "vol_mute", "Mute", "mdi:volume-mute"))
     
-    # Input/source selection
     entities.append(CouchsideTVButton(coordinator, "input_hdmi", "HDMI Input", "mdi:import"))
     
     async_add_entities(entities, update_before_add=True)
-
 
 def _device_name(status: dict) -> str:
     """Format a polished device name from hostname and OS."""
@@ -44,12 +38,11 @@ def _device_name(status: dict) -> str:
         return f"{hostname} ({os_name})"
     return hostname
 
-
 class CouchsideTVButton(CoordinatorEntity, ButtonEntity):
     """A TV control button for the Couchside box."""
 
     def __init__(self, coordinator: CouchsideCoordinator, action_id: str, name: str, icon: str):
-        super().__init__(coordinator)
+        CoordinatorEntity.__init__(self, coordinator)
         self.action_id = action_id
         self._attr_name = name
         self._attr_icon = icon
@@ -76,5 +69,4 @@ class CouchsideTVButton(CoordinatorEntity, ButtonEntity):
         try:
             await self.coordinator.async_tv_command(self.action_id)
         except Exception:
-            # Actions may fail silently if the TV backend doesn't support them
             pass

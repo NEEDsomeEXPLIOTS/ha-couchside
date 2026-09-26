@@ -1,18 +1,17 @@
 """Couchside number entities for configurable thresholds."""
 from __future__ import annotations
 
-from homeassistant.components.number import NumberEntity, NumberMode
-from homeassistant.const import PERCENTAGE, UnitOfTemperature
-from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.components.number import NumberEntity, NumberMode # type: ignore
+from homeassistant.const import PERCENTAGE, UnitOfTemperature # type: ignore
+from homeassistant.helpers.device_registry import DeviceInfo # type: ignore
+from homeassistant.helpers.update_coordinator import CoordinatorEntity # type: ignore
 
-from .const import (
+from .const import ( # type: ignore
     CONF_CPU_TEMP_THRESHOLD,
     DEFAULT_PORT,
     DOMAIN,
 )
-from .coordinator import CouchsideCoordinator
-
+from .coordinator import CouchsideCoordinator # type: ignore
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Create number entities for configurable values."""
@@ -22,12 +21,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
         CpuTempThresholdSensor(coordinator),
     ]
     
-    # Volume limit if TV control is available
     if coordinator.data.get("tv"):
         entities.append(VolumeLimitSensor(coordinator))
     
     async_add_entities(entities, update_before_add=True)
-
 
 def _device_name(status: dict) -> str:
     """Format a polished device name from hostname and OS."""
@@ -37,12 +34,11 @@ def _device_name(status: dict) -> str:
         return f"{hostname} ({os_name})"
     return hostname
 
-
-class CpuTempThresholdSensor(NumberEntity):
+class CpuTempThresholdSensor(CoordinatorEntity, NumberEntity):
     """Set the CPU temperature warning threshold."""
 
     def __init__(self, coordinator: CouchsideCoordinator):
-        super().__init__()
+        CoordinatorEntity.__init__(self, coordinator)
         self._attr_name = "CPU Temp Threshold"
         self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
         self._attr_mode = NumberMode.BOX
@@ -85,12 +81,11 @@ class CpuTempThresholdSensor(NumberEntity):
             options=new_options,
         )
 
-
-class VolumeLimitSensor(NumberEntity):
+class VolumeLimitSensor(CoordinatorEntity, NumberEntity):
     """Set maximum volume level for TV control."""
 
     def __init__(self, coordinator: CouchsideCoordinator):
-        super().__init__()
+        CoordinatorEntity.__init__(self, coordinator)
         self._attr_name = "Volume Limit"
         self._attr_native_unit_of_measurement = PERCENTAGE
         self._attr_mode = NumberMode.BOX

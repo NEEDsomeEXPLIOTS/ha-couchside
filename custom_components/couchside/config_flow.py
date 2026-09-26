@@ -3,11 +3,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
+from typing import Any, Optional
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -22,10 +21,10 @@ class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         """Initialize the config flow."""
-        self._discovered_host: str | None = None
+        self._discovered_host: Optional[str] = None
         self._discovered_port: int = DEFAULT_PORT
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None):
+    async def async_step_user(self, user_input: Optional[dict[str, Any]] = None):
         """Start config or manual entry."""
         errors: dict[str, str] = {}
 
@@ -59,7 +58,7 @@ class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_token(self, user_input: dict[str, Any] | None = None):
+    async def async_step_token(self, user_input: Optional[dict[str, Any]] = None):
         """Validate the bearer token against /api/status."""
         errors: dict[str, str] = {}
 
@@ -164,7 +163,7 @@ class CouchsideOptionsFlow(config_entries.OptionsFlow):
         """Initialize the options flow."""
         self.config_entry = config_entry
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None):
+    async def async_step_init(self, user_input: Optional[dict[str, Any]] = None):
         """Manage the options."""
         errors: dict[str, str] = {}
 

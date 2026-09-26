@@ -1,5 +1,5 @@
 """Constants for Couchside integration."""
-from homeassistant.const import Platform
+from homeassistant.const import Platform # type: ignore
 
 DOMAIN = "couchside"
 DEFAULT_PORT = 8787

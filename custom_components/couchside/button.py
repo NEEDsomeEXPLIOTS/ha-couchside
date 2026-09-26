@@ -1,13 +1,12 @@
 """Couchside action buttons."""
 from __future__ import annotations
 
-from homeassistant.components.button import ButtonEntity
-from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.components.button import ButtonEntity # type: ignore
+from homeassistant.helpers.device_registry import DeviceInfo # type: ignore
+from homeassistant.helpers.update_coordinator import CoordinatorEntity # type: ignore
 
-from .const import DOMAIN
-from .coordinator import CouchsideCoordinator
-
+from .const import DOMAIN # type: ignore
+from .coordinator import CouchsideCoordinator # type: ignore
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Create a button entity for each configured Couchside action."""
@@ -20,12 +19,19 @@ async def async_setup_entry(hass, entry, async_add_entities):
     ]
     async_add_entities(entities, update_before_add=True)
 
+def _device_name(status: dict) -> str:
+    """Format a polished device name from hostname and OS."""
+    hostname = status.get("hostname", "Couchside").title()
+    os_name = status.get("os", {}).get("name", "")
+    if os_name:
+        return f"{hostname} ({os_name})"
+    return hostname
 
 class CouchsideButton(CoordinatorEntity, ButtonEntity):
     """A Couchside box action exposed as a Home Assistant button."""
 
     def __init__(self, coordinator: CouchsideCoordinator, action: dict):
-        super().__init__(coordinator)
+        CoordinatorEntity.__init__(self, coordinator)
         self.action = action
         self._attr_name = action.get("label", action.get("id", "Action"))
         self._attr_icon = "mdi:gesture-tap-button"
@@ -36,7 +42,7 @@ class CouchsideButton(CoordinatorEntity, ButtonEntity):
         status = self.coordinator.data.get("status", {})
         return DeviceInfo(
             identifiers={(DOMAIN, self.coordinator.entry.entry_id)},
-            name=status.get("hostname", "Couchside"),
+            name=_device_name(status),
             manufacturer="EmeryTech",
             model=status.get("os", {}).get("name", "Unknown"),
             hw_version=status.get("os", {}).get("build", "Unknown"),

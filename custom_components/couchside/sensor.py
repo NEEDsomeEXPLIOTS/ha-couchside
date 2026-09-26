@@ -3,26 +3,18 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.const import PERCENTAGE, UnitOfTemperature, UnitOfTime
-from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.components.sensor import SensorEntity # type: ignore
+from homeassistant.const import PERCENTAGE, UnitOfTemperature, UnitOfTime # type: ignore
+from homeassistant.helpers.device_registry import DeviceInfo # type: ignore
+from homeassistant.helpers.update_coordinator import CoordinatorEntity # type: ignore
 
-from .const import DOMAIN
-from .coordinator import CouchsideCoordinator
+from .const import DOMAIN # type: ignore
+from .coordinator import CouchsideCoordinator # type: ignore
 
-# Static sensors expected on the Couchside box.
-# The actual payload from the SteamDeck in this session reports:
-# - cpu_temp_c: float
-# - uptime_s: int
-# - mem: {total_mb, used_mb, available_mb, ...}
-# - load: [1m, 5m, 15m]
-# - disks: [{mount, total_gb, used_gb, free_gb, pct}, ...]
 SENSORS = {
     "cpu_temp_c": ("CPU Temperature", UnitOfTemperature.CELSIUS, "mdi:thermometer"),
     "mem": ("Memory Used", PERCENTAGE, "mdi:memory"),
 }
-
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Create sensor entities for one Couchside box."""
@@ -34,11 +26,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         for key, meta in SENSORS.items()
     ]
 
-    # Uptime as a human-readable string (days, hours, minutes, seconds)
     entities.append(CouchsideUptimeSensor(coordinator, "Uptime", "mdi:clock-outline"))
-
-    # /api/status exposes a 3-value load list: [1m, 5m, 15m].
-    # This is not a percentage; it is a load-average value, so we expose it as-is.
     entities.append(CouchsideLoadSensor(coordinator, "Load Average", "mdi:cpu-64-bit"))
 
     for disk in status.get("disks", []):
@@ -48,12 +36,19 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     async_add_entities(entities, update_before_add=True)
 
+def _device_name(status: dict) -> str:
+    """Format a polished device name from hostname and OS."""
+    hostname = status.get("hostname", "Couchside").title()
+    os_name = status.get("os", {}).get("name", "")
+    if os_name:
+        return f"{hostname} ({os_name})"
+    return hostname
 
 class CouchsideSensor(CoordinatorEntity, SensorEntity):
     """A status sensor for a Couchside box metric."""
 
     def __init__(self, coordinator: CouchsideCoordinator, key: str, name: str, unit: str, icon: str):
-        super().__init__(coordinator)
+        CoordinatorEntity.__init__(self, coordinator)
         self.key = key
         self._attr_name = name
         self._attr_native_unit_of_measurement = unit
@@ -65,21 +60,12 @@ class CouchsideSensor(CoordinatorEntity, SensorEntity):
         status = self.coordinator.data.get("status", {})
         return DeviceInfo(
             identifiers={(DOMAIN, self.coordinator.entry.entry_id)},
-            name=self._device_name(status),
+            name=_device_name(status),
             manufacturer="EmeryTech",
             model=status.get("os", {}).get("name", "Unknown"),
             hw_version=status.get("os", {}).get("build", "Unknown"),
             sw_version=status.get("agent_version", "Unknown"),
         )
-
-    @staticmethod
-    def _device_name(status: dict) -> str:
-        """Format a polished device name from hostname and OS."""
-        hostname = status.get("hostname", "Couchside").title()
-        os_name = status.get("os", {}).get("name", "")
-        if os_name:
-            return f"{hostname} ({os_name})"
-        return hostname
 
     @property
     def unique_id(self):
@@ -96,12 +82,11 @@ class CouchsideSensor(CoordinatorEntity, SensorEntity):
             return None
         return value
 
-
 class CouchsideUptimeSensor(CoordinatorEntity, SensorEntity):
     """Expose uptime as a human-readable duration string."""
 
     def __init__(self, coordinator: CouchsideCoordinator, name: str, icon: str):
-        super().__init__(coordinator)
+        CoordinatorEntity.__init__(self, coordinator)
         self._attr_name = name
         self._attr_icon = icon
         self._attr_has_entity_name = True
@@ -111,21 +96,12 @@ class CouchsideUptimeSensor(CoordinatorEntity, SensorEntity):
         status = self.coordinator.data.get("status", {})
         return DeviceInfo(
             identifiers={(DOMAIN, self.coordinator.entry.entry_id)},
-            name=self._device_name(status),
+            name=_device_name(status),
             manufacturer="EmeryTech",
             model=status.get("os", {}).get("name", "Unknown"),
             hw_version=status.get("os", {}).get("build", "Unknown"),
             sw_version=status.get("agent_version", "Unknown"),
         )
-
-    @staticmethod
-    def _device_name(status: dict) -> str:
-        """Format a polished device name from hostname and OS."""
-        hostname = status.get("hostname", "Couchside").title()
-        os_name = status.get("os", {}).get("name", "")
-        if os_name:
-            return f"{hostname} ({os_name})"
-        return hostname
 
     @property
     def unique_id(self):
@@ -143,7 +119,6 @@ class CouchsideUptimeSensor(CoordinatorEntity, SensorEntity):
         hours, remainder = divmod(td.seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
         
-        # Format as "Xd Yh Zm" or just the relevant parts
         parts = []
         if days:
             parts.append(f"{days}d")
@@ -156,12 +131,11 @@ class CouchsideUptimeSensor(CoordinatorEntity, SensorEntity):
         
         return " ".join(parts)
 
-
 class CouchsideLoadSensor(CoordinatorEntity, SensorEntity):
     """Expose the 1-minute load average from /api/status."""
 
     def __init__(self, coordinator: CouchsideCoordinator, name: str, icon: str):
-        super().__init__(coordinator)
+        CoordinatorEntity.__init__(self, coordinator)
         self._attr_name = name
         self._attr_icon = icon
         self._attr_has_entity_name = True
@@ -171,21 +145,12 @@ class CouchsideLoadSensor(CoordinatorEntity, SensorEntity):
         status = self.coordinator.data.get("status", {})
         return DeviceInfo(
             identifiers={(DOMAIN, self.coordinator.entry.entry_id)},
-            name=self._device_name(status),
+            name=_device_name(status),
             manufacturer="EmeryTech",
             model=status.get("os", {}).get("name", "Unknown"),
             hw_version=status.get("os", {}).get("build", "Unknown"),
             sw_version=status.get("agent_version", "Unknown"),
         )
-
-    @staticmethod
-    def _device_name(status: dict) -> str:
-        """Format a polished device name from hostname and OS."""
-        hostname = status.get("hostname", "Couchside").title()
-        os_name = status.get("os", {}).get("name", "")
-        if os_name:
-            return f"{hostname} ({os_name})"
-        return hostname
 
     @property
     def unique_id(self):
@@ -198,12 +163,11 @@ class CouchsideLoadSensor(CoordinatorEntity, SensorEntity):
             return float(load[0])
         return None
 
-
 class CouchsideDiskSensor(CoordinatorEntity, SensorEntity):
     """Expose a given disk mount as a percentage-used sensor."""
 
     def __init__(self, coordinator: CouchsideCoordinator, mount: str):
-        super().__init__(coordinator)
+        CoordinatorEntity.__init__(self, coordinator)
         self.mount = mount
         self._attr_name = f"Disk {mount} Used"
         self._attr_native_unit_of_measurement = PERCENTAGE
@@ -215,21 +179,12 @@ class CouchsideDiskSensor(CoordinatorEntity, SensorEntity):
         status = self.coordinator.data.get("status", {})
         return DeviceInfo(
             identifiers={(DOMAIN, self.coordinator.entry.entry_id)},
-            name=self._device_name(status),
+            name=_device_name(status),
             manufacturer="EmeryTech",
             model=status.get("os", {}).get("name", "Unknown"),
             hw_version=status.get("os", {}).get("build", "Unknown"),
             sw_version=status.get("agent_version", "Unknown"),
         )
-
-    @staticmethod
-    def _device_name(status: dict) -> str:
-        """Format a polished device name from hostname and OS."""
-        hostname = status.get("hostname", "Couchside").title()
-        os_name = status.get("os", {}).get("name", "")
-        if os_name:
-            return f"{hostname} ({os_name})"
-        return hostname
 
     @property
     def unique_id(self):

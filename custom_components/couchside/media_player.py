@@ -1,14 +1,13 @@
 """Couchside media players."""
 from __future__ import annotations
 
-from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerEntityFeature
-from homeassistant.const import STATE_IDLE, STATE_PAUSED, STATE_PLAYING
-from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerEntityFeature # type: ignore
+from homeassistant.const import STATE_IDLE, STATE_PAUSED, STATE_PLAYING # type: ignore
+from homeassistant.helpers.device_registry import DeviceInfo # type: ignore
+from homeassistant.helpers.update_coordinator import CoordinatorEntity # type: ignore
 
-from .const import DOMAIN
-from .coordinator import CouchsideCoordinator
-
+from .const import DOMAIN # type: ignore
+from .coordinator import CouchsideCoordinator # type: ignore
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Create a media player for each active player reported by Couchside."""
@@ -21,12 +20,19 @@ async def async_setup_entry(hass, entry, async_add_entities):
     ]
     async_add_entities(entities, update_before_add=True)
 
+def _device_name(status: dict) -> str:
+    """Format a polished device name from hostname and OS."""
+    hostname = status.get("hostname", "Couchside").title()
+    os_name = status.get("os", {}).get("name", "")
+    if os_name:
+        return f"{hostname} ({os_name})"
+    return hostname
 
 class CouchsideMediaPlayer(CoordinatorEntity, MediaPlayerEntity):
     """A Couchside media player entity backed by the agent's /api/media endpoint."""
 
     def __init__(self, coordinator: CouchsideCoordinator, player: dict):
-        super().__init__(coordinator)
+        CoordinatorEntity.__init__(self, coordinator)
         self.player_id = player.get("id")
         self._attr_name = player.get("identity", player.get("id", "Media"))
         self._attr_supported_features = (
@@ -42,7 +48,7 @@ class CouchsideMediaPlayer(CoordinatorEntity, MediaPlayerEntity):
         status = self.coordinator.data.get("status", {})
         return DeviceInfo(
             identifiers={(DOMAIN, self.coordinator.entry.entry_id)},
-            name=status.get("hostname", "Couchside"),
+            name=_device_name(status),
             manufacturer="EmeryTech",
             model=status.get("os", {}).get("name", "Unknown"),
             hw_version=status.get("os", {}).get("build", "Unknown"),
