@@ -1,7 +1,7 @@
 # Home Assistant Couchside Integration
 ## Custom Home Assistant integration for Couchside, an open-source LAN-only remote control agent for SteamOS, Bazzite, and Linux gaming boxes.
 
-Couchside lets you monitor and control your gaming PC from Home Assistant using a bearer-token-authenticated HTTP API with optional TLS encryption.
+Couchside lets you monitor and control your gaming PC, Steam Deck or Steam Machine from Home Assistant using a bearer-token-authenticated HTTP API with optional TLS encryption.
 
 ## Features
 
@@ -39,15 +39,15 @@ Go to `Settings` → `Devices & Services` → `Create Automation` → `Couchside
 
 Then restart Home Assistant.
 
-# Setup
-##1. Get your Couchside token
+# Setup (Must already have Couchside Setup)
+### 1. Get your Couchside token
 On your gaming machine (SteamOS, Bazzite, or Linux with Couchside installed):
 
 `cat /etc/couchside/token`
 
 Copy this token. It's the bearer credential that Home Assistant will use.
 
-## 2. Add the integration
+### 2. Add the integration
 Go to `Settings` → `Devices & Services`
 
 Click Create Integration and search for Couchside
@@ -58,7 +58,7 @@ Paste the token from step 1
 
 The integration will verify the token against `/api/status` and create a config entry.
 
-## 3. Rename the device (optional)
+### 3. Rename the device (optional)
 
 # After setup:
 
@@ -117,11 +117,9 @@ Token is never logged or committed
 
 ## Integration won't load
 
-### Check the Couchside agent is running:
-   `systemctl status couchside`
+Check the Couchside agent is running: `systemctl status couchside`
 
-### Verify the token is correct:
-   `curl -H "Authorization: Bearer YOUR_TOKEN" http://BOX_IP:8787/api/status`
+Verify the token is correct: `curl -H "Authorization: Bearer YOUR_TOKEN" http://BOX_IP:8787/api/status`
 
 Check Home Assistant logs: `Settings` → `System` → `Logs`
 
@@ -142,10 +140,10 @@ Ensure the Couchside agent is running on the box
 Check network connectivity
 
 # Development
-## AI Use
+### AI Use
 This is made by AI.
 
-## This integration uses:
+### This integration uses:
 async/await patterns for Home Assistant integration standards
 
 DataUpdateCoordinator for efficient polling (30-second interval)
