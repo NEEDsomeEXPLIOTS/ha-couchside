@@ -27,15 +27,13 @@ class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Start config or manual entry."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         if user_input:
-            # Validate manual entry
             try:
                 self._discovered_host = cv.string(user_input[CONF_HOST])
                 self._discovered_port = int(user_input[CONF_PORT])
                 
-                # Check if already configured
                 await self.async_set_unique_id(
                     f"{self._discovered_host}:{self._discovered_port}"
                 )
@@ -45,16 +43,13 @@ class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except vol.Invalid:
                 errors["base"] = "invalid_host"
 
-        # Try automatic discovery first
         discovered_devices = await self._discover()
         
         if discovered_devices:
-            # Show first discovered device, but allow choosing others
             self._discovered_host = discovered_devices[0][CONF_HOST]
             self._discovered_port = discovered_devices[0][CONF_PORT]
             return await self.async_step_token()
 
-        # No discovery - fall back to manual form
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({
@@ -66,7 +61,7 @@ class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_token(self, user_input: dict[str, Any] | None = None):
         """Validate the bearer token against /api/status."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         if user_input:
             token = str(user_input[CONF_TOKEN]).strip()
@@ -76,7 +71,6 @@ class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 session = async_get_clientsession(self.hass)
                 try:
-                    # Test connection with token
                     async with session.get(
                         f"http://{self._discovered_host}:{self._discovered_port}/api/status",
                         headers={"Authorization": f"Bearer {token}"},
@@ -87,15 +81,11 @@ class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         elif response.status != 200:
                             errors["base"] = "cannot_connect"
                         else:
-                            # Success! Create the entry
                             await self.async_set_unique_id(
                                 f"{self._discovered_host}:{self._discovered_port}"
                             )
-                            
-                            # Abort if already configured
                             self._abort_if_unique_id_configured()
                             
-                            # Get device info for title
                             data = await response.json()
                             title = data.get("hostname", "Couchside")
                             
@@ -112,30 +102,20 @@ class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except (OSError, HomeAssistantError):
                     errors["base"] = "cannot_connect"
 
-        # Show token entry form
         return self.async_show_form(
             step_id="token",
             data_schema=vol.Schema({vol.Required(CONF_TOKEN): str}),
             errors=errors,
         )
 
-    async def async_step_reauth(self, user_input: dict[str, Any] | None = None):
-        """Handle reauth flow when token is rejected."""
-        self._reauth_entry = self.hass.config_entries.async_entry_for_domain_unique_id(
-            DOMAIN, self.context["unique_id"]
-        )
-        return await self.async_step_token()
-
     async def _discover(self) -> list[dict[str, Any]]:
         """Broadcast the Couchside UDP discovery packet and wait for replies."""
         loop = asyncio.get_running_loop()
         found: list[dict[str, Any]] = []
-        
-        # Use a future to signal completion
         discovery_complete = loop.create_future()
         
         class DiscoveryProtocol(asyncio.DatagramProtocol):
-            def __init__(self, found_list: list[dict[str, Any]], done_future):
+            def __init__(self, found_list: list[dict[str, Any]], done_future) -> None:
                 self.found = found_list
                 self.done = done_future
             
@@ -164,16 +144,11 @@ class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 allow_broadcast=True,
             )
             
-            # Send discovery packet to broadcast address
             transport.sendto(DISCOVERY_MAGIC, ("255.255.255.255", DEFAULT_PORT))
-            
-            # Wait for responses (with timeout)
             await asyncio.wait_for(discovery_complete, timeout=2.5)
         except asyncio.TimeoutError:
-            # Timeout is okay - just return what we found
             pass
         except OSError:
-            # Network error - continue with empty results
             pass
         finally:
             if transport:
@@ -182,7 +157,7 @@ class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return found
 
 
-class CouchsideOptionsFlowHandler(config_entries.OptionsFlow):
+class CouchsideOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for reconfiguration."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
@@ -191,14 +166,13 @@ class CouchsideOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         """Manage the options."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         if user_input:
             new_host = str(user_input[CONF_HOST]).strip()
             new_port = int(user_input[CONF_PORT])
             new_token = str(user_input[CONF_TOKEN]).strip()
             
-            # Validate the new settings
             session = async_get_clientsession(self.hass)
             try:
                 async with session.get(
@@ -209,7 +183,6 @@ class CouchsideOptionsFlowHandler(config_entries.OptionsFlow):
                     if response.status != 200:
                         errors["base"] = "cannot_connect"
                     else:
-                        # Update the entry
                         self.hass.config_entries.async_update_entry(
                             self.config_entry,
                             data={
@@ -218,7 +191,6 @@ class CouchsideOptionsFlowHandler(config_entries.OptionsFlow):
                                 CONF_TOKEN: new_token,
                             },
                         )
-                        # Reload the entry
                         await self.hass.config_entries.async_reload(self.config_entry.entry_id)
                         return self.async_create_entry(title="", data={})
             except asyncio.TimeoutError:
@@ -229,23 +201,16 @@ class CouchsideOptionsFlowHandler(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
-                vol.Required(
-                    CONF_HOST,
-                    default=self.config_entry.data[CONF_HOST]
-                ): str,
-                vol.Required(
-                    CONF_PORT,
-                    default=self.config_entry.data[CONF_PORT]
-                ): int,
-                vol.Required(
-                    CONF_TOKEN,
-                    default=self.config_entry.data[CONF_TOKEN]
-                ): str,
+                vol.Required(CONF_HOST, default=self.config_entry.data[CONF_HOST]): str,
+                vol.Required(CONF_PORT, default=self.config_entry.data[CONF_PORT]): int,
+                vol.Required(CONF_TOKEN, default=self.config_entry.data[CONF_TOKEN]): str,
             }),
             errors=errors,
         )
 
 
-async def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> CouchsideOptionsFlowHandler:
+async def async_get_options_flow(
+    config_entry: config_entries.ConfigEntry,
+) -> CouchsideOptionsFlow:
     """Get the options flow for this handler."""
-    return CouchsideOptionsFlowHandler(config_entry)
+    return CouchsideOptionsFlow(config_entry)
