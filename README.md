@@ -1,32 +1,41 @@
-Home Assistant Couchside Integration
-Custom Home Assistant integration for Couchside, an open-source LAN-only remote control agent for SteamOS, Bazzite, and Linux gaming boxes.
+## Home Assistant Couchside Integration
+# Custom Home Assistant integration for Couchside, an open-source LAN-only remote control agent for SteamOS, Bazzite, and Linux gaming boxes.
 
 Couchside lets you monitor and control your gaming PC from Home Assistant using a bearer-token-authenticated HTTP API with optional TLS encryption.
 
-Features
+# Features
+
 ✅ Auto-discovery — broadcasts UDP probe on port 8787 to find boxes
+
 ✅ Bearer-token auth — secure LAN-only pairing via Home Assistant config
+
 ✅ Comprehensive sensors — CPU temperature, memory, load, disk usage, uptime
+
 ✅ Action buttons — execute configured Couchside actions
+
 ✅ Media controls — play, pause, next, previous for MPRIS players
+
 ✅ TV controls — power, volume, mute, input selection (when available)
+
 ✅ Grouped device — all entities under one polished device entry
 
-Installation
-HACS
-Not yet in the official HACS directory. Install manually:
+## Installation
+# HACS
+Not yet in the official HACS directory. 
 
+# Install manually:
 Download this repository as a ZIP
 Extract to config/custom_components/couchside/
 Restart Home Assistant
 Go to Settings → Devices & Services → Create Automation → Couchside
-Manual
+
+# Git
 cd /config/custom_components
 git clone https://github.com/NEEDsomeEXPLIOTS/ha-couchside couchside
 
 Then restart Home Assistant.
 
-Setup
+# Setup
 1. Get your Couchside token
 On your gaming machine (SteamOS, Bazzite, or Linux with Couchside installed):
 
@@ -34,17 +43,19 @@ cat /etc/couchside/token
 
 Copy this token. It's the bearer credential that Home Assistant will use.
 
-2. Add the integration
+# 2. Add the integration
 Go to Settings → Devices & Services
 Click Create Integration and search for Couchside
 The integration auto-discovers boxes on your LAN (via UDP broadcast)
 Paste the token from step 1
 The integration will verify the token against /api/status and create a config entry.
 
-3. Rename the device (optional)
-After setup:
+# 3. Rename the device (optional)
+
+# After setup:
 
 Go to Settings → Devices & Services
+
 Find the Couchside device (named Steamdeck (SteamOS) by default)
 Click the device name to rename it
 Entities Created
@@ -88,17 +99,20 @@ Entities show "unavailable"
 Verify the token is still valid
 Ensure the Couchside agent is running on the box
 Check network connectivity
-Development
-This integration uses:
 
+## Development
+# AI Use
+This is made by AI.
+# This integration uses:
 async/await patterns for Home Assistant integration standards
 DataUpdateCoordinator for efficient polling (30-second interval)
 Device grouping with DeviceInfo and _attr_has_entity_name
 Bearer token auth with no hardcoded credentials
-License
+
+# License
 MIT. See LICENSE.
 
-Links
+# Links
 Couchside agent: https://github.com/emerytech/couchside
 Home Assistant docs: https://developers.home-assistant.io/
 Issue tracker: https://github.com/NEEDsomeEXPLIOTS/ha-couchside/issues
