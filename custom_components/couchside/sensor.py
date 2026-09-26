@@ -4,7 +4,6 @@ from __future__ import annotations
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import (
     PERCENTAGE,
-    UnitOfDataStorage,
     UnitOfTemperature,
     UnitOfTime,
 )
