@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-import ipaddress
-import socket
+import json
 from typing import Any
 
 import voluptuous as vol
@@ -12,10 +11,8 @@ from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.typing import ConfigType
 
 from .const import CONF_HOST, CONF_PORT, CONF_TOKEN, DEFAULT_PORT, DISCOVERY_MAGIC, DOMAIN
-from .coordinator import CouchsideCoordinator
 
 
 class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -27,9 +24,8 @@ class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize the config flow."""
         self._discovered_host: str | None = None
         self._discovered_port: int = DEFAULT_PORT
-        self._reauth_entry: config_entries.ConfigEntry | None = None
 
-    async def async_step_user(self, user_input: ConfigType | None = None):
+    async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Start config or manual entry."""
         errors = {}
 
@@ -62,20 +58,13 @@ class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({
-                vol.Required(CONF_HOST, description={
-                    "suggested_value": self._discovered_host
-                }): str,
-                vol.Required(CONF_PORT, default=DEFAULT_PORT, description={
-                    "suggested_value": self._discovered_port
-                }): int,
+                vol.Required(CONF_HOST, default=""): str,
+                vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
             }),
             errors=errors,
-            description_placeholders={
-                "doc_url": "https://github.com/NEEDsomeEXPLIOTS/ha-couchside#setup"
-            },
         )
 
-    async def async_step_token(self, user_input: ConfigType | None = None):
+    async def async_step_token(self, user_input: dict[str, Any] | None = None):
         """Validate the bearer token against /api/status."""
         errors = {}
 
@@ -103,12 +92,12 @@ class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 f"{self._discovered_host}:{self._discovered_port}"
                             )
                             
-                            # Abort if already configured (shouldn't happen after abort_if_unique_id_configured above)
+                            # Abort if already configured
                             self._abort_if_unique_id_configured()
                             
                             # Get device info for title
                             data = await response.json()
-                            title = data.get("status", {}).get("hostname", "Couchside")
+                            title = data.get("hostname", "Couchside")
                             
                             return self.async_create_entry(
                                 title=title,
@@ -126,19 +115,11 @@ class CouchsideConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Show token entry form
         return self.async_show_form(
             step_id="token",
-            data_schema=vol.Schema({
-                vol.Required(CONF_TOKEN, description={
-                    "suggested_value": ""  # Empty by default for security
-                }): str,
-            }),
+            data_schema=vol.Schema({vol.Required(CONF_TOKEN): str}),
             errors=errors,
-            description_placeholders={
-                "host": self._discovered_host,
-                "port": self._discovered_port,
-            },
         )
 
-    async def async_step_reauth(self, user_input: ConfigType | None = None):
+    async def async_step_reauth(self, user_input: dict[str, Any] | None = None):
         """Handle reauth flow when token is rejected."""
         self._reauth_entry = self.hass.config_entries.async_entry_for_domain_unique_id(
             DOMAIN, self.context["unique_id"]
@@ -208,7 +189,7 @@ class CouchsideOptionsFlowHandler(config_entries.OptionsFlow):
         """Initialize the options flow."""
         self.config_entry = config_entry
 
-    async def async_step_init(self, user_input: ConfigType | None = None):
+    async def async_step_init(self, user_input: dict[str, Any] | None = None):
         """Manage the options."""
         errors = {}
 
@@ -262,13 +243,9 @@ class CouchsideOptionsFlowHandler(config_entries.OptionsFlow):
                 ): str,
             }),
             errors=errors,
-            description_placeholders={
-                "title": self.config_entry.title
-            },
         )
 
 
-@callback
-def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> CouchsideOptionsFlowHandler:
+async def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> CouchsideOptionsFlowHandler:
     """Get the options flow for this handler."""
     return CouchsideOptionsFlowHandler(config_entry)
