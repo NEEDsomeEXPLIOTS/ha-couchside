@@ -1,4 +1,4 @@
-# Home Assistant Couchside Integration
+# Home Assistant Couchside Integration (Unoffical AI Coded)
 
 Custom Home Assistant integration for [Couchside](https://github.com/emerytech/couchside), an open-source LAN-only remote control agent for SteamOS, Bazzite, and Linux gaming boxes.
 
