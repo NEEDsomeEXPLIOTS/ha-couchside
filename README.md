@@ -23,13 +23,13 @@ Custom Home Assistant integration for [Couchside](https://github.com/emerytech/c
 
 ## Installation
 
-###HACS Custom Repository
+### HACS Custom Repository
 1. Go to HACS in Home Assistant
 2. Click **⋮ (three dots) → Custom Repository**
 3. Paste `https://github.com/NEEDsomeEXPLIOTS/ha-couchside/edit/main/README.md` as the URL
 4. Select **Integration** as the Type and add
 
-###Install manually:
+### Install manually:
 
 1. Download this repository as a ZIP
 2. Extract to `config/custom_components/couchside/`
